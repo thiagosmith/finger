@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Fingerprint Harvest by 5M1TH</title>
+  <style>
+    body {
+      background-color: #000;
+      font-family: "Courier New", monospace;
+      color: #0f0;
+      padding: 20px;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    h1 {
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff;
+      text-align: center;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      margin: 10px 0;
+      padding: 15px;
+      background: #111;
+      border: 1px solid #0f0;
+      color: #0f0;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.3s;
+      font-size: 16px;
+    }
+    .btn:hover {
+      background: #0f0;
+      color: #000;
+      box-shadow: 0 0 10px #0f0;
+    }
+    #info {
+      flex: 1;
+    }
+    footer {
+      text-align: center;
+      padding: 10px;
+      border-top: 1px solid #0f0;
+      color: #0f0;
+      font-size: 14px;
+      text-shadow: 0 0 5px #0f0;
+    }
+    .copy-btn {
+      margin-top: 5px;
+      background: #222;
+      border: 1px solid #0ff;
+      color: #0ff;
+    }
+    .copy-btn:hover {
+      background: #0ff;
+      color: #000;
+    }
+    .print-btn {
+      margin-top: 10px;
+      background: #222;
+      border: 1px solid #f0f;
+      color: #f0f;
+    }
+    .print-btn:hover {
+      background: #f0f;
+      color: #000;
+    }
+
+    /* Impressão em preto e branco */
+    @media print {
+      body {
+        background: #fff !important;
+        color: #000 !important;
+      }
+      h1, .btn, footer {
+        color: #000 !important;
+        border: 1px solid #000 !important;
+        text-shadow: none !important;
+        box-shadow: none !important;
+        background: #fff !important;
+      }
+      .copy-btn, .print-btn {
+        display: none; /* não imprime botões de ação */
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>📡 Fingerprint Harvest by 5M1TH 🔎</h1>
+  <div id="info"></div>
+
+  <footer>
+    © 2026 Smith Braz || 5M1TH - Todos os direitos reservados <br>
+    <button class="print-btn" onclick="window.print()">🖨️ Imprimir Resultado</button>
+  </footer>
+
+  <script>
+    let canvasData = "";
+
+    async function coletarFingerprint() {
+      const dados = {};
+
+      // IP Público via ipify
+      try {
+        const resposta = await fetch("https://api.ipify.org?format=json");
+        const json = await resposta.json();
+        dados.IP_Público = json.ip;
+      } catch (e) {
+        dados.IP_Público = "não disponível";
+      }
+
+      // Localização com consentimento
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            dados.Localização = `Lat: ${pos.coords.latitude}, Lng: ${pos.coords.longitude}`;
+            continuarColeta(dados);
+          },
+          (err) => {
+            dados.Localização = "usuário negou ou não disponível";
+            continuarColeta(dados);
+          }
+        );
+      } else {
+        dados.Localização = "não suportado";
+        continuarColeta(dados);
+      }
+    }
+
+    async function continuarColeta(dados) {
+      // IP Local via WebRTC
+      try {
+        const pc = new RTCPeerConnection({iceServers:[]});
+        pc.createDataChannel("");
+        pc.createOffer().then(offer => pc.setLocalDescription(offer));
+        pc.onicecandidate = (event) => {
+          if (event && event.candidate && event.candidate.candidate) {
+            const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
+            const ipMatch = ipRegex.exec(event.candidate.candidate);
+            if (ipMatch) {
+              dados.IP_Local = ipMatch[1];
+              renderizar(dados);
+              pc.close();
+            }
+          }
+        };
+      } catch (e) {
+        dados.IP_Local = "não disponível";
+      }
+
+      // Dados básicos
+      dados.Navegador = navigator.userAgent;
+      dados.Idioma = navigator.language;
+      dados.Plataforma = navigator.platform;
+      dados.Resolução = `${screen.width} x ${screen.height}`;
+      dados.Fuso_Horário = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      dados.CPU_Cores = navigator.hardwareConcurrency || "não disponível";
+      dados.Memória = navigator.deviceMemory ? navigator.deviceMemory + " GB" : "não disponível";
+
+      // WebGL
+      try {
+        const gl = document.createElement("canvas").getContext("webgl");
+        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+        dados.WebGL_Vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+        dados.WebGL_Renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+      } catch (e) {
+        dados.WebGL = "não disponível";
+      }
+
+      // AudioContext
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        dados.Audio_SampleRate = audioCtx.sampleRate;
+      } catch (e) {
+        dados.Audio = "não disponível";
+      }
+
+      // Canvas por último
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      ctx.textBaseline = "top";
+      ctx.font = "16px Arial";
+      ctx.fillText("Fingerprint Teste", 2, 15);
+      canvasData = canvas.toDataURL();
+      dados.Canvas = "Canvas Fingerprint gerado";
+
+      renderizar(dados);
+    }
+
+    function renderizar(dados) {
+      const container = document.getElementById("info");
+      container.innerHTML = "";
+
+      // Ordem personalizada: IP → Localização → resto → Canvas
+      const ordem = ["IP_Público", "IP_Local", "Localização",
+                     "Navegador", "Idioma", "Plataforma", "Resolução",
+                     "Fuso_Horário", "CPU_Cores", "Memória",
+                     "WebGL_Vendor", "WebGL_Renderer", "Audio_SampleRate",
+                     "Canvas"];
+
+      ordem.forEach(chave => {
+        if (dados[chave] !== undefined) {
+          const btn = document.createElement("button");
+          btn.className = "btn";
+          btn.textContent = `${chave}: ${dados[chave]}`;
+          container.appendChild(btn);
+
+          // Se for Canvas, adiciona botão de copiar
+          if (chave === "Canvas") {
+            const copyBtn = document.createElement("button");
+            copyBtn.className = "copy-btn btn";
+            copyBtn.textContent = "📋 Copiar Código Canvas";
+            copyBtn.onclick = () => {
+              navigator.clipboard.writeText(canvasData);
+              alert("Código Canvas copiado!");
+            };
+            container.appendChild(copyBtn);
+          }
+        }
+      });
+    }
+
+    coletarFingerprint();
+  </script>
+</body>
+</html>
