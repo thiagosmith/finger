@@ -118,6 +118,7 @@
           async (pos) => {
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
+            let endereco = "";
             try {
               const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
               const resposta = await fetch(url);
@@ -125,10 +126,11 @@
               const cidade = json.address.city || json.address.town || json.address.village || "Cidade não encontrada";
               const estado = json.address.state || "Estado não encontrado";
               const pais = json.address.country || "País não encontrado";
-              dados.Localização = `${cidade}, ${estado}, ${pais}`;
+              endereco = `${cidade}, ${estado}, ${pais}`;
             } catch (e) {
-              dados.Localização = `Lat: ${lat}, Lng: ${lon}`;
+              endereco = "Endereço não disponível";
             }
+            dados.Localização = `${endereco} (Lat: ${lat}, Lng: ${lon})`;
             continuarColeta(dados);
           },
           (err) => {
@@ -217,7 +219,7 @@
         if (dados[chave] !== undefined) {
           const btn = document.createElement("button");
           btn.className = "btn";
-          btn.textContent = `🌐 ${chave}: ${dados[chave]}`;
+          btn.textContent = `👉 ${chave}: ${dados[chave]}`;
           container.appendChild(btn);
 
           // Se for Canvas, adiciona botão de copiar
@@ -238,4 +240,5 @@
     coletarFingerprint();
   </script>
 </body>
-</html>  
+</html>
+
